@@ -3,14 +3,26 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// All user routes 
 const express_1 = __importDefault(require("express"));
 const userController_1 = require("../controllers/userController");
+const auth_1 = require("../middleware/auth");
 const router = express_1.default.Router();
-// Route to register or login user
-router.post('/auth', userController_1.registerOrLoginUser);
-// Route to get user profile
+// Route to send code to user's phone number and register
+router.post('/send-code-register', userController_1.sendCodeRegister);
+// Route to send code to user's phone number and login
+router.post('/send-code-login', userController_1.sendCodeLogin);
+// Route to verify code sent to phone
+router.post('/verify-code', userController_1.verifyCode);
+// Route to fetch user profile by phone number
 router.get('/profile/:phoneNumber', userController_1.getUserProfile);
-// Route to update user profile
+// Route to update user profile details
 router.put('/profile', userController_1.updateUserProfile);
+// Route to delete user account and details
+router.delete('/users', auth_1.authenticateToken, userController_1.deleteUser);
+// Route to log user out of account
+router.post('/logout', auth_1.authenticateToken, (req, res) => {
+    res.status(200).json({ message: 'Logged out successfully' });
+});
+// Route to log user out of account with expired token
+router.post('/logout', auth_1.authenticateTokenAllowExpired, userController_1.logoutUser);
 exports.default = router;

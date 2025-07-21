@@ -1,104 +1,160 @@
-// Logic for the user routes
 import { Request, Response } from 'express';
 import User from '../models/user';
-import admin from '../config/firebaseAdmin';
+import jwt from 'jsonwebtoken';
 import twilio from 'twilio';
+import dotenv from 'dotenv';
+dotenv.config();
 
-export const registerOrLoginUser = async (req: Request, res: Response) => {
-    const { idToken } = req.body;
-  
-    if (!idToken) {
-        return res.status(400).json({ message: 'ID token is required' });
+// Twilio and JWT config
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
+const jwtSecret = process.env.JWT_SECRET!;
+
+// Safety check
+if (!accountSid || !authToken || !verifySid || !jwtSecret) {
+  console.error('Missing Twilio or JWT credentials in environment variables.');
+}
+
+const client = twilio(accountSid, authToken);
+
+// Send code via Twilio and register user
+export const sendCodeRegister = async (req: Request, res: Response) => {
+  const { phoneNumber } = req.body;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ message: 'Phone number is required' });
+  }
+
+  try {
+    const existingUser = await User.findOne({ phoneNumber });
+    if (existingUser) {
+      return res.status(409).json({ message: 'User already exists. Please log in instead.' });
     }
-  
-    try {
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        const { uid, phone_number } = decodedToken;
-  
-        if (!phone_number) {
-            return res.status(400).json({ message: 'Phone number missing in token' });
-        }
-  
-        let user = await User.findOne({ uid });
-  
-        if (!user) {
-            user = new User({
-                uid,
-                phoneNumber: phone_number,
-                isVerified: true,
-            });
-            await user.save();
-        }
-        res.status(200).json({ message: 'User authenticated', user });
-    } catch (err) {
-        console.error('Firebase auth error:', err);
-        res.status(401).json({ message: 'Invalid or expired token' });
-    }
+
+    const verification = await client.verify.v2.services(verifySid!)
+      .verifications.create({ to: phoneNumber, channel: 'sms' });
+
+    res.status(200).json({ message: 'Code sent for registration', sid: verification.sid });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Failed to send code', error: error.message || error });
+  }
 };
-  
-// Get user profile by phone number
+
+// Send code via Twilio and login user
+export const sendCodeLogin = async (req: Request, res: Response) => {
+  const { phoneNumber } = req.body;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ message: 'Phone number is required' });
+  }
+
+  try {
+    const existingUser = await User.findOne({ phoneNumber });
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found. Please register first.' });
+    }
+
+    const verification = await client.verify.v2.services(verifySid!)
+      .verifications.create({ to: phoneNumber, channel: 'sms' });
+
+    res.status(200).json({ message: 'Code sent for login', sid: verification.sid });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Failed to send code', error: error.message || error });
+  }
+};
+
+// Verify code and Register/Login User
+export const verifyCode = async (req: Request, res: Response) => {
+  const { phoneNumber, code } = req.body;
+
+  if (!phoneNumber || !code) {
+    return res.status(400).json({ message: 'Phone number and code are required' });
+  }
+
+  try {
+    const verification = await client.verify.v2
+      .services(verifySid!)
+      .verificationChecks.create({ to: phoneNumber, code });
+
+    if (verification.status !== 'approved') {
+      return res.status(401).json({ message: 'Invalid code' });
+    }
+
+    const existingUser = await User.findOne({ phoneNumber });
+    if (existingUser) {
+      return res.status(409).json({ message: 'User already registered with this phone number' });
+    }
+
+    const user = new User({ phoneNumber });
+    await user.save();
+
+    const token = jwt.sign({ phoneNumber: user.phoneNumber }, jwtSecret, { expiresIn: '7d' });
+    res.status(200).json({ message: 'User registered successfully', token, user });
+
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to verify code', error: err.message || err });
+  }
+};
+
+// Get User Profile by Phone Number
 export const getUserProfile = async (req: Request, res: Response) => {
-    const { phoneNumber } = req.params;
-  
-    try {
-        const user = await User.findOne({ phoneNumber });
-        if (!user) return res.status(404).json({ message: 'User not found' });
-    
-        res.status(200).json(user);
-    } catch (err) {
-        console.error('Fetch profile error:', err);
-        res.status(500).json({ message: 'Failed to fetch profile' });
-    }
+  const { phoneNumber } = req.params;
+  try {
+    const user = await User.findOne({ phoneNumber });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.status(200).json(user);
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to fetch profile', error: err.message || err });
+  }
 };
-  
-// Update user profile
+
+// Update User Profile
 export const updateUserProfile = async (req: Request, res: Response) => {
-    const { phoneNumber, firstName, lastName, email, preferences } = req.body;
+  const { phoneNumber, firstName, lastName, email, preferences } = req.body;
+  try {
+    const user = await User.findOne({ phoneNumber });
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    try {
-        const user = await User.findOne({ phoneNumber });
-        if (!user) return res.status(404).json({ message: 'User not found' });
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    if (email) user.email = email;
 
-        if (firstName) user.firstName = firstName;
-        if (lastName) user.lastName = lastName;
-        if (email) user.email = email;
+    user.preferences = {
+      betTypes: preferences?.betTypes || [],
+      sportsbooks: preferences?.sportsbooks || [],
+      lineChanges: preferences?.lineChanges || []
+    };
 
-        if (!user.preferences) {
-            user.preferences = {
-                betTypes: [],
-                sportsbooks: [],
-                lineChanges: [],
-            };
-        }
-        if (preferences?.betTypes) user.preferences.betTypes = preferences.betTypes;
-        if (preferences?.sportsbooks) user.preferences.sportsbooks = preferences.sportsbooks;
-        if (preferences?.lineChanges) user.preferences.lineChanges = preferences.lineChanges;
-
-        await user.save();
-
-        res.status(200).json({ message: 'Profile updated', user });
-    } catch (err) {
-        console.error('Profile update error:', err);
-        res.status(500).json({ message: 'Failed to update profile' });
-    }
+    await user.save();
+    res.status(200).json({ message: 'Profile updated', user });
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to update profile', error: err.message || err });
+  }
 };
 
+// Logout user
+export const logoutUser = async (req: Request, res: Response) => {
+  res.status(200).json({ message: 'Logged out successfully' });
+};
 
-export const verifyFirebaseToken = async (req: Request, res: Response) => {
-    const { idToken } = req.body;
-  
-    try {
-        const decodedToken = await admin.auth().verifyIdToken(idToken);
-        const { phone_number } = decodedToken;
-  
-        let user = await User.findOne({ phoneNumber: phone_number });
-        if (!user) {
-            user = new User({ phoneNumber: phone_number });
-            await user.save();
-        }
-        return res.status(200).json({ message: 'Authenticated', user });
-    } catch (err) {
-        console.error('Token verification error:', err);
-        return res.status(401).json({ message: 'Invalid or expired token' });
+// Delete user account
+export const deleteUser = async (req: Request, res: Response) => {
+  const phoneNumber = (req as any).user?.phoneNumber;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ message: 'Phone number missing in token' });
+  }
+
+  try {
+    const user = await User.findOneAndDelete({ phoneNumber });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
-  };
+
+    res.status(200).json({ message: 'Account deleted successfully' });
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to delete account', error: err.message || err });
+  }
+};
+
