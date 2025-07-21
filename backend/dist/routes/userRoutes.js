@@ -11,8 +11,10 @@ const router = express_1.default.Router();
 router.post('/send-code-register', userController_1.sendCodeRegister);
 // Route to send code to user's phone number and login
 router.post('/send-code-login', userController_1.sendCodeLogin);
-// Route to verify code sent to phone
-router.post('/verify-code', userController_1.verifyCode);
+// Route to verify code sent to phone when registering
+router.post('/verify-code-register', userController_1.verifyCodeRegister);
+// Route to verify code sent to phone when logging in
+router.post('/verify-code-login', userController_1.verifyCodeLogin);
 // Route to fetch user profile by phone number
 router.get('/profile/:phoneNumber', userController_1.getUserProfile);
 // Route to update user profile details

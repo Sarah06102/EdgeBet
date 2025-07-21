@@ -124,7 +124,7 @@ const NumberVerification = () => {
   const handleVerifyCode = async () => {
     const fullPhone = callingCode + rawPhone;
     try {
-      const response = await fetch('http://192.168.1.71:4000/api/users/verify-code', {
+      const response = await fetch('http://192.168.1.71:4000/api/users/verify-code-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: fullPhone, code }),

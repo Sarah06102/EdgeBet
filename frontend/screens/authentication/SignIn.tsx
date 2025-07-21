@@ -63,7 +63,7 @@ const SignIn = () => {
           return;
         }
         try {
-          const res = await fetch('http://192.168.1.71:4000/api/users/verify-code', {
+          const res = await fetch('http://192.168.1.71:4000/api/users/verify-code-login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phoneNumber: fullPhone, code }),

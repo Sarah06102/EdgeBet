@@ -64,8 +64,8 @@ export const sendCodeLogin = async (req: Request, res: Response) => {
   }
 };
 
-// Verify code and Register/Login User
-export const verifyCode = async (req: Request, res: Response) => {
+// Verify code and Register User
+export const verifyCodeRegister = async (req: Request, res: Response) => {
   const { phoneNumber, code } = req.body;
 
   if (!phoneNumber || !code) {
@@ -73,8 +73,7 @@ export const verifyCode = async (req: Request, res: Response) => {
   }
 
   try {
-    const verification = await client.verify.v2
-      .services(verifySid!)
+    const verification = await client.verify.v2.services(verifySid!)
       .verificationChecks.create({ to: phoneNumber, code });
 
     if (verification.status !== 'approved') {
@@ -91,6 +90,35 @@ export const verifyCode = async (req: Request, res: Response) => {
 
     const token = jwt.sign({ phoneNumber: user.phoneNumber }, jwtSecret, { expiresIn: '7d' });
     res.status(200).json({ message: 'User registered successfully', token, user });
+
+  } catch (err: any) {
+    res.status(500).json({ message: 'Failed to verify code', error: err.message || err });
+  }
+};
+
+// Verify code and Login user
+export const verifyCodeLogin = async (req: Request, res: Response) => {
+  const { phoneNumber, code } = req.body;
+
+  if (!phoneNumber || !code) {
+    return res.status(400).json({ message: 'Phone number and code are required' });
+  }
+
+  try {
+    const verification = await client.verify.v2.services(verifySid!)
+      .verificationChecks.create({ to: phoneNumber, code });
+
+    if (verification.status !== 'approved') {
+      return res.status(401).json({ message: 'Invalid code' });
+    }
+
+    const existingUser = await User.findOne({ phoneNumber });
+    if (!existingUser) {
+      return res.status(404).json({ message: 'User not found. Please register first.' });
+    }
+
+    const token = jwt.sign({ phoneNumber: existingUser.phoneNumber }, jwtSecret, { expiresIn: '7d' });
+    res.status(200).json({ message: 'Login successful', token, user: existingUser });
 
   } catch (err: any) {
     res.status(500).json({ message: 'Failed to verify code', error: err.message || err });

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.logoutUser = exports.updateUserProfile = exports.getUserProfile = exports.verifyCode = exports.sendCodeLogin = exports.sendCodeRegister = void 0;
+exports.deleteUser = exports.logoutUser = exports.updateUserProfile = exports.getUserProfile = exports.verifyCodeLogin = exports.verifyCodeRegister = exports.sendCodeLogin = exports.sendCodeRegister = void 0;
 const user_1 = __importDefault(require("../models/user"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const twilio_1 = __importDefault(require("twilio"));
@@ -59,15 +59,14 @@ const sendCodeLogin = async (req, res) => {
     }
 };
 exports.sendCodeLogin = sendCodeLogin;
-// Verify code and Register/Login User
-const verifyCode = async (req, res) => {
+// Verify code and Register User
+const verifyCodeRegister = async (req, res) => {
     const { phoneNumber, code } = req.body;
     if (!phoneNumber || !code) {
         return res.status(400).json({ message: 'Phone number and code are required' });
     }
     try {
-        const verification = await client.verify.v2
-            .services(verifySid)
+        const verification = await client.verify.v2.services(verifySid)
             .verificationChecks.create({ to: phoneNumber, code });
         if (verification.status !== 'approved') {
             return res.status(401).json({ message: 'Invalid code' });
@@ -85,7 +84,31 @@ const verifyCode = async (req, res) => {
         res.status(500).json({ message: 'Failed to verify code', error: err.message || err });
     }
 };
-exports.verifyCode = verifyCode;
+exports.verifyCodeRegister = verifyCodeRegister;
+// Verify code and Login user
+const verifyCodeLogin = async (req, res) => {
+    const { phoneNumber, code } = req.body;
+    if (!phoneNumber || !code) {
+        return res.status(400).json({ message: 'Phone number and code are required' });
+    }
+    try {
+        const verification = await client.verify.v2.services(verifySid)
+            .verificationChecks.create({ to: phoneNumber, code });
+        if (verification.status !== 'approved') {
+            return res.status(401).json({ message: 'Invalid code' });
+        }
+        const existingUser = await user_1.default.findOne({ phoneNumber });
+        if (!existingUser) {
+            return res.status(404).json({ message: 'User not found. Please register first.' });
+        }
+        const token = jsonwebtoken_1.default.sign({ phoneNumber: existingUser.phoneNumber }, jwtSecret, { expiresIn: '7d' });
+        res.status(200).json({ message: 'Login successful', token, user: existingUser });
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Failed to verify code', error: err.message || err });
+    }
+};
+exports.verifyCodeLogin = verifyCodeLogin;
 // Get User Profile by Phone Number
 const getUserProfile = async (req, res) => {
     const { phoneNumber } = req.params;

@@ -6,7 +6,8 @@ import {
   updateUserProfile,
   deleteUser,
   logoutUser,
-  verifyCode
+  verifyCodeRegister,
+  verifyCodeLogin
 } from '../controllers/userController';
 import { authenticateToken, authenticateTokenAllowExpired } from '../middleware/auth';
 
@@ -18,8 +19,11 @@ router.post('/send-code-register', sendCodeRegister);
 // Route to send code to user's phone number and login
 router.post('/send-code-login', sendCodeLogin);
 
-// Route to verify code sent to phone
-router.post('/verify-code', verifyCode);
+// Route to verify code sent to phone when registering
+router.post('/verify-code-register', verifyCodeRegister);
+
+// Route to verify code sent to phone when logging in
+router.post('/verify-code-login', verifyCodeLogin);
 
 // Route to fetch user profile by phone number
 router.get('/profile/:phoneNumber', getUserProfile);
