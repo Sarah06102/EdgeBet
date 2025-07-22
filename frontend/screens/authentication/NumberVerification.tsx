@@ -7,6 +7,7 @@ import EdgeBetIcon from '../../assets/edgebet_icon_white.png';
 import { parsePhoneNumberFromString, CountryCode } from 'libphonenumber-js';
 import CountryPicker, { Country } from 'react-native-country-picker-modal';
 import { AsYouType } from 'libphonenumber-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -133,6 +134,7 @@ const NumberVerification = () => {
       const data = await response.json();
       if (response.ok) {
         console.log('Verification success:', data);
+        await AsyncStorage.setItem('authToken', data.token);
         setStep('verified');
       } else {
         Alert.alert('Verification failed', data.message);

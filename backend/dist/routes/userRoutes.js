@@ -15,16 +15,14 @@ router.post('/send-code-login', userController_1.sendCodeLogin);
 router.post('/verify-code-register', userController_1.verifyCodeRegister);
 // Route to verify code sent to phone when logging in
 router.post('/verify-code-login', userController_1.verifyCodeLogin);
-// Route to fetch user profile by phone number
-router.get('/profile/:phoneNumber', userController_1.getUserProfile);
+// Route to fetch user profile by JWT token
+router.get('/profile', auth_1.authenticateToken, userController_1.getUserProfile);
 // Route to update user profile details
 router.put('/profile', userController_1.updateUserProfile);
 // Route to delete user account and details
 router.delete('/users', auth_1.authenticateToken, userController_1.deleteUser);
 // Route to log user out of account
-router.post('/logout', auth_1.authenticateToken, (req, res) => {
-    res.status(200).json({ message: 'Logged out successfully' });
-});
+router.post('/logout', auth_1.authenticateToken, userController_1.logoutUser);
 // Route to log user out of account with expired token
 router.post('/logout', auth_1.authenticateTokenAllowExpired, userController_1.logoutUser);
 exports.default = router;

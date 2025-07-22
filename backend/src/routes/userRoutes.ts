@@ -25,8 +25,8 @@ router.post('/verify-code-register', verifyCodeRegister);
 // Route to verify code sent to phone when logging in
 router.post('/verify-code-login', verifyCodeLogin);
 
-// Route to fetch user profile by phone number
-router.get('/profile/:phoneNumber', getUserProfile);
+// Route to fetch user profile by JWT token
+router.get('/profile', authenticateToken, getUserProfile);
 
 // Route to update user profile details
 router.put('/profile', updateUserProfile);
@@ -35,9 +35,7 @@ router.put('/profile', updateUserProfile);
 router.delete('/users', authenticateToken, deleteUser);
 
 // Route to log user out of account
-router.post('/logout', authenticateToken, (req, res) => {
-  res.status(200).json({ message: 'Logged out successfully' });
-});
+router.post('/logout', authenticateToken, logoutUser);
 
 // Route to log user out of account with expired token
 router.post('/logout', authenticateTokenAllowExpired, logoutUser);

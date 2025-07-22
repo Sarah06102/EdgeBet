@@ -125,9 +125,14 @@ export const verifyCodeLogin = async (req: Request, res: Response) => {
   }
 };
 
-// Get User Profile by Phone Number
+// Get User Profile by JWT token
 export const getUserProfile = async (req: Request, res: Response) => {
-  const { phoneNumber } = req.params;
+  const phoneNumber = (req as any).user?.phoneNumber;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ message: 'Phone number missing in token' });
+  }
+
   try {
     const user = await User.findOne({ phoneNumber });
     if (!user) return res.status(404).json({ message: 'User not found' });

@@ -83,6 +83,19 @@ const Main = () => {
     type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
     const navigation = useNavigation<NavigationProp>();
 
+    useEffect(() => {
+        const checkAuth = async () => {
+            const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'SignIn' }],
+                });
+            }
+        };
+        checkAuth();
+    }, []);
+
     const [fontsLoaded] = useFonts({
         'SFProDisplayRegular': require('../../assets/fonts/SFProDisplayRegular.otf'),
         'SFProDisplayBold': require('../../assets/fonts/SFProDisplayBold.otf'),
@@ -100,29 +113,43 @@ const Main = () => {
 
     useEffect(() => {
         const fetchUserProfile = async () => {
-            if (!phoneNumber) {
-                console.warn('Phone number not provided.');
-                return;
+          const token = await AsyncStorage.getItem('token');
+          if (!token) {
+            console.warn('No JWT token found in AsyncStorage');
+            return;
+          }
+      
+          try {
+            const profileRes = await axios.get('http://192.168.1.71:4000/api/users/profile', {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+      
+            const userData = profileRes.data;
+            if (!userData) {
+              throw new Error('No user data found in response');
             }
       
-            try {
-                const checkUser = await axios.post('http://localhost:4000/api/users/signin', {
-                    phoneNumber,
+            console.log('Fetched user profile:', userData);
+            setUser(userData);
+            } catch (err: any) {
+                console.error('Error fetching user profile:', {
+                message: err.message,
+                status: err.response?.status,
+                data: err.response?.data,
                 });
-      
-                if (checkUser.data.userExists) {
-                    const profileRes = await axios.get(`http://localhost:4000/api/users/profile?phoneNumber=${encodeURIComponent(phoneNumber)}`);
-                    console.log('Fetched user profile:', profileRes.data.user);
-                    setUser(profileRes.data.user);
-                } else {
-                    console.log('User does not exist. Skipping profile fetch.');
+            
+                if (err.response?.status === 401) {
+                await AsyncStorage.removeItem('token');
+                navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
                 }
-            } catch (err) {
-                console.error('Error checking user or fetching profile:', err);
             }
+          
         };
+      
         fetchUserProfile();
-    }, [phoneNumber]);      
+    }, []);      
       
     useEffect(() => {
         const fetchMatches = async () => {

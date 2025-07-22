@@ -2,8 +2,11 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
+// Load secret key for JWT verification
 const jwtSecret = process.env.JWT_SECRET!;
 
+
+// Middleware to authenticate requests using JWT. It rejects if token is missing, malformed, invalid, or expired.
 export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
@@ -22,6 +25,7 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   }
 };
 
+// Middleware that allows expired tokens. This is useful for flows like logout or account deletion.
 export const authenticateTokenAllowExpired = (
   req: Request,
   res: Response,
@@ -41,7 +45,6 @@ export const authenticateTokenAllowExpired = (
     next();
   } catch (err: any) {
     if (err.name === 'TokenExpiredError') {
-      // allow expired token for logout
       next();
     } else {
       return res.status(403).json({ message: 'Invalid token' });

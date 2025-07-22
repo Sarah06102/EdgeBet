@@ -5,7 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authenticateTokenAllowExpired = exports.authenticateToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+// Load secret key for JWT verification
 const jwtSecret = process.env.JWT_SECRET;
+// Middleware to authenticate requests using JWT. It rejects if token is missing, malformed, invalid, or expired.
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -22,6 +24,7 @@ const authenticateToken = (req, res, next) => {
     }
 };
 exports.authenticateToken = authenticateToken;
+// Middleware that allows expired tokens. This is useful for flows like logout or account deletion.
 const authenticateTokenAllowExpired = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -35,7 +38,6 @@ const authenticateTokenAllowExpired = (req, res, next) => {
     }
     catch (err) {
         if (err.name === 'TokenExpiredError') {
-            // allow expired token for logout
             next();
         }
         else {
